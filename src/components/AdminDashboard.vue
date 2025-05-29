@@ -55,7 +55,7 @@ import { ref, onMounted } from "vue";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../firebaseConfig";
 import * as XLSX from "xlsx";
-import { idfMobilitesCycleSurveyQuestions } from "./idfMobilitesCycleSurveyQuestions.js";
+import { templateSurveyQuestions as surveyQuestions } from "./surveyQuestions.js";
 
 const props = defineProps({
   activeFirebaseCollectionName: {
@@ -126,7 +126,7 @@ const downloadData = async () => {
     const excludedKeys = ["firestore_id", "firebase_timestamp", "S1"];
 
     // Get the survey question order from the IDF survey questions
-    const surveyQuestionOrder = idfMobilitesCycleSurveyQuestions.map(q => q.id);
+    const surveyQuestionOrder = surveyQuestions.map(q => q.id);
     
     // Collect all keys that exist in the data
     let allKeys = new Set(coreHeaders);
@@ -138,20 +138,71 @@ const downloadData = async () => {
       });
     });
 
-    // Create ordered headers: core headers first, then survey questions in order, then any remaining keys
-    const surveyHeaders = surveyQuestionOrder.filter(questionId => 
-      allKeys.has(questionId) && 
-      !coreHeaders.includes(questionId)
-    );
+    // Create ordered headers: core headers first, then survey questions in order with their related fields grouped together
+    const surveyHeaders = [];
     
+    // Auto-detect work station question by finding which question stores data in POSTE_TRAVAIL field
+    let detectedWorkStationQuestionId = null;
+    if (allKeys.has("POSTE_TRAVAIL")) {
+      // Find which survey question has values that match POSTE_TRAVAIL values
+      const posteTravailValues = new Set();
+      rawData.forEach(docData => {
+        if (docData.POSTE_TRAVAIL) {
+          posteTravailValues.add(docData.POSTE_TRAVAIL);
+        }
+      });
+      
+      // Check each survey question to see if its values match POSTE_TRAVAIL values
+      for (const questionId of surveyQuestionOrder) {
+        if (!coreHeaders.includes(questionId) && allKeys.has(questionId)) {
+          const questionValues = new Set();
+          rawData.forEach(docData => {
+            if (docData[questionId]) {
+              questionValues.add(docData[questionId]);
+            }
+          });
+          
+          // If question values match POSTE_TRAVAIL values, this is likely the work station question
+          const matchingValues = [...posteTravailValues].filter(val => questionValues.has(val));
+          if (matchingValues.length > 0 && matchingValues.length >= posteTravailValues.size * 0.8) {
+            detectedWorkStationQuestionId = questionId;
+            break;
+          }
+        }
+      }
+    }
+    
+    // Process each survey question and add related fields immediately after
+    surveyQuestionOrder.forEach(questionId => {
+      // Skip the detected work station question ID since it's handled as POSTE in core headers
+      if (questionId === detectedWorkStationQuestionId) {
+        return;
+      }
+      
+      if (allKeys.has(questionId) && !coreHeaders.includes(questionId)) {
+        // Add the main question field
+        surveyHeaders.push(questionId);
+        
+        // Check for related commune fields and add them immediately after
+        const codeInseeField = `${questionId}_CODE_INSEE`;
+        const communeLibreField = `${questionId}_COMMUNE_LIBRE`;
+        
+        if (allKeys.has(codeInseeField)) {
+          surveyHeaders.push(codeInseeField);
+        }
+        
+        if (allKeys.has(communeLibreField)) {
+          surveyHeaders.push(communeLibreField);
+        }
+      }
+    });
+    
+    // Collect remaining headers that weren't processed above
+    const processedHeaders = new Set([...coreHeaders, ...surveyHeaders]);
     const remainingHeaders = Array.from(allKeys)
-      .filter(key => 
-        !coreHeaders.includes(key) && 
-        !surveyQuestionOrder.includes(key) && 
-        !excludedKeys.includes(key)
-      )
+      .filter(key => !processedHeaders.has(key) && !excludedKeys.includes(key))
       .sort(); // Sort remaining headers alphabetically
-    
+
     // Rename POSTE_TRAVAIL to POSTE in the header order
     const headerOrder = [...coreHeaders, ...surveyHeaders, ...remainingHeaders].map(header => 
       header === "POSTE_TRAVAIL" ? "POSTE" : header

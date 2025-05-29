@@ -31,11 +31,8 @@ onMounted(async () => {
     const response = await fetch('/gare.json'); // Assuming gare.json is in /public
     if (response.ok) {
       const data = await response.json();
-      // Assuming gare.json is an array of strings or objects with a name property
-      allGares.value = data.map(item => {
-        if (typeof item === 'string') return { name: item };
-        return item; // Assuming item is an object like { name: 'Gare Name', ...otherProps }
-      });
+      // The gare.json already has the correct structure with "Nom Gare" property
+      allGares.value = data;
     } else {
       console.error('Error loading gare.json: Response not OK', response.status);
       allGares.value = []; // Ensure it's an empty array on failure
@@ -58,7 +55,11 @@ const filteredGares = ref([]);
 
 // Helper to get gare name if it's an object, or return the string itself
 const getGareName = (gare) => {
-  return typeof gare === 'object' && gare !== null && gare.name ? gare.name : gare;
+  if (typeof gare === 'object' && gare !== null) {
+    // Handle the actual structure from gare.json which uses "Nom Gare"
+    return gare["Nom Gare"] || gare.name || gare;
+  }
+  return gare;
 };
 
 const searchGares = () => {
@@ -74,7 +75,7 @@ const searchGares = () => {
   const searchTerm = gareInputDisplay.value.toLowerCase();
   filteredGares.value = allGares.value.filter(gare => {
     const name = getGareName(gare);
-    return name && name.toLowerCase().includes(searchTerm);
+    return name && typeof name === 'string' && name.toLowerCase().includes(searchTerm);
   }).slice(0, 100); // Limit results
 
   showDropdown.value = filteredGares.value.length > 0;

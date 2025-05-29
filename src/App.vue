@@ -1,10 +1,10 @@
 <script setup>
-import { ref } from 'vue'; // Import ref
-import Constructor from './components/Constructor.vue'; // Corrected import name
+import { ref } from 'vue';
+import Constructor from './components/Constructor.vue';
 import AdminDashboard from './components/AdminDashboard.vue';
 
 // Define the master Firebase collection name here
-const masterFirebaseCollectionName = ref("IDFMobilites2"); 
+const masterFirebaseCollectionName = ref("Template");
 </script>
 
 <template>

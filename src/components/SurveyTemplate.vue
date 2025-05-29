@@ -581,12 +581,54 @@ const handleFreeTextAnswer = () => {
 
 const handleCommuneSelection = () => {
   if (!currentQuestion.value || !selectedCommune.value.trim()) return;
+  
+  const questionId = currentQuestion.value.id;
+  
+  // Parse the selectedCommune value (format: "COMMUNE - CODE_INSEE" or just "COMMUNE")
+  const communeValue = selectedCommune.value.trim();
+  let communeName = communeValue;
+  let codeInsee = '';
+  let communeLibre = '';
+  
+  if (communeValue.includes(' - ')) {
+    // Selected from dropdown (format: "COMMUNE - CODE_INSEE")
+    const parts = communeValue.split(' - ');
+    communeName = parts[0];
+    codeInsee = parts[1] || '';
+  } else {
+    // Free text input (user typed something not in the list)
+    communeLibre = communeValue;
+    communeName = '';
+  }
+  
+  // Record the main commune field
   recordAnswerToState(
-    currentQuestion.value.id,
+    questionId,
     currentQuestionText.value,
-    selectedCommune.value.trim(),
-    selectedCommune.value.trim()
+    communeName,
+    communeName
   );
+  
+  // Record the CODE INSEE field if available
+  if (codeInsee) {
+    recordAnswerToState(
+      `${questionId}_CODE_INSEE`,
+      `${currentQuestionText.value} - Code INSEE`,
+      codeInsee,
+      codeInsee
+    );
+  }
+  
+  // Record the COMMUNE_LIBRE field if it's free text
+  if (communeLibre) {
+    recordAnswerToState(
+      `${questionId}_COMMUNE_LIBRE`,
+      `${currentQuestionText.value} - Commune libre`,
+      communeLibre,
+      communeLibre
+    );
+  }
+  
   nextQuestion(null);
 };
 
