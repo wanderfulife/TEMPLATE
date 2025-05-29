@@ -5,6 +5,7 @@
     :poste-travail-question-id="posteTravailQuestionId"
     :welcome-message="customWelcomeMessage"
     logo-src="../assets/YOUR_LOGO.webp"
+    :streets-list="allStreets"
   />
 </template>
 <script setup>
@@ -40,8 +41,26 @@ const customWelcomeMessage = ref(`
 // Replace 'exampleSurveyQuestions' with your imported questions
 const currentSurveyQuestions = ref(templateSurveyQuestions);
 
-onMounted(() => {
+// 🎯 STEP 4: Add Street Data (New Step)
+const allStreets = ref([]); // Holds the street data
+
+onMounted(async () => {
   document.title = pageTitle.value;
+
+  // Fetch street data
+  try {
+    const response = await fetch('/streets.json'); // Path relative to public directory
+    if (response.ok) {
+      allStreets.value = await response.json();
+      console.log("Streets loaded:", allStreets.value.length); // For debugging
+    } else {
+      console.error('Error loading streets.json: Response not OK', response.status);
+      allStreets.value = []; // Ensure it's an empty array on failure
+    }
+  } catch (error) {
+    console.error('Error fetching streets.json:', error);
+    allStreets.value = []; // Ensure it's an empty array on error
+  }
 });
 </script>
 
